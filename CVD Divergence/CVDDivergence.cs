@@ -14,28 +14,6 @@ public class CVDDivergence : Indicator
 {
     #region Properties
 
-    [Display(Name = "Bullish Color")] public Color BullishDivergence
-    {
-        get => _bullishDivergence;
-        set
-        {
-            _bullishDivergence = value;
-            RecalculateValues();
-            MyPropertyChanged?.Invoke();
-        }
-    }
-
-    [Display(Name = "Bearish Color")] public Color BearishDivergence
-    {
-        get => _bearishDivergence;
-        set
-        {
-            _bearishDivergence = value;
-            RecalculateValues();
-            MyPropertyChanged?.Invoke();
-        }
-    }
-
     [Range(1, int.MaxValue)]
     [Display(Name = "Max Bars Distance", Description = "Sets the upper limit for searching for divergences. If there are more than the specified number of bars between two extremes, they will not be considered as a related pair for analysis.")]
     public int MaxDistance
@@ -57,6 +35,28 @@ public class CVDDivergence : Indicator
         set
         {
             _minDistance = Math.Min(value, _maxDistance);
+            RecalculateValues();
+            MyPropertyChanged?.Invoke();
+        }
+    }
+
+    [Display(Name = "Bullish Color")] public Color BullishDivergence
+    {
+        get => _bullishDivergence;
+        set
+        {
+            _bullishDivergence = value;
+            RecalculateValues();
+            MyPropertyChanged?.Invoke();
+        }
+    }
+
+    [Display(Name = "Bearish Color")] public Color BearishDivergence
+    {
+        get => _bearishDivergence;
+        set
+        {
+            _bearishDivergence = value;
             RecalculateValues();
             MyPropertyChanged?.Invoke();
         }
