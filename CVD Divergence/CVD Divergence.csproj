@@ -15,6 +15,9 @@
     <Reference Include="ATAS.Indicators">
       <HintPath>D:\ATAS\ATAS Platform\ATAS.Indicators.dll</HintPath>
     </Reference>
+    <Reference Include="ATAS.Strategies">
+      <HintPath>D:\ATAS\ATAS Platform\ATAS.Strategies.dll</HintPath>
+    </Reference>
     <Reference Include="System.Drawing.Common">
       <HintPath>D:\ATAS\ATAS Platform\System.Drawing.Common.dll</HintPath>
     </Reference>
