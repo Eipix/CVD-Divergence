@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <RootNamespace>CVD_Divergence</RootNamespace>
+    <Nullable>enable</Nullable>
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="ATAS.DataFeedsCore">
+      <HintPath>D:\ATAS\ATAS Platform\ATAS.DataFeedsCore.dll</HintPath>
+    </Reference>
+    <Reference Include="ATAS.Indicators">
+      <HintPath>D:\ATAS\ATAS Platform\ATAS.Indicators.dll</HintPath>
+    </Reference>
+    <Reference Include="System.Drawing.Common">
+      <HintPath>D:\ATAS\ATAS Platform\System.Drawing.Common.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>
