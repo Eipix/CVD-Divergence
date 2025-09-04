@@ -3,6 +3,7 @@ using ATAS.Indicators;
 using ATAS.Indicators.Technical;
 using ATAS.Strategies.Chart;
 using System.ComponentModel.DataAnnotations;
+using System.Drawing;
 
 namespace Strategy.Samples;
 
@@ -13,6 +14,19 @@ public class CVDStrategySample : ChartStrategy
 
     private readonly ObjectDataSeries _bullishDivergences;
     private readonly ObjectDataSeries _bearishDivergences;
+
+    private readonly ValueDataSeries _longArrows = new("_bullishSignals", "Bullish Signals")
+    {
+        VisualType = VisualMode.UpArrow,
+        Color = Color.Green.Convert(),
+        Width = 2
+    };
+    private readonly ValueDataSeries _shortArrows = new("_bearishSignals", "Bearish Signals")
+    {
+        VisualType = VisualMode.DownArrow,
+        Color = Color.Red.Convert(),
+        Width = 2
+    };
 
     [Display] public CVDDivergence CDelta { get; set; } = new()
     {
@@ -31,6 +45,9 @@ public class CVDStrategySample : ChartStrategy
         Add(CDelta);
 
         DataSeries[0] = CDelta.DataSeries[0];
+        DataSeries.Add(_longArrows);
+        DataSeries.Add(_shortArrows);
+
         _bullishDivergences = (ObjectDataSeries)CDelta.DataSeries[1];
         _bearishDivergences = (ObjectDataSeries)CDelta.DataSeries[2];
 
@@ -53,11 +70,15 @@ public class CVDStrategySample : ChartStrategy
 
         if (IsValid(_bullishDivergences, bar))
         {
+            _longArrows[bar] = last.Low - InstrumentInfo!.TickSize * 2;
+
             CloseCurrentPosition();
             OpenPosition(OrderDirections.Buy);
         }
         else if (IsValid(_bearishDivergences, bar))
         {
+            _shortArrows[bar] = last.High + InstrumentInfo!.TickSize * 2;
+
             CloseCurrentPosition();
             OpenPosition(OrderDirections.Sell);
         }
