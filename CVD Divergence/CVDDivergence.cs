@@ -12,6 +12,32 @@ namespace ATAS.Indicators.Technical;
 [Category("Bid x Ask,Delta,Volume")]
 public class CVDDivergence : Indicator
 {
+    public event Action? MyPropertyChanged;
+    public event Action<TrendLine>? DivergenceDrawn;
+    public event Action? Recalculating;
+
+    private HashSet<(int, int, decimal, decimal)> _linePositions = new();
+
+    private Color _bullishDivergence = Color.Green;
+    private Color _bearishDivergence = Color.Red;
+
+    private int _minDistance = 10;
+    private int _maxDistance = 100;
+
+    private decimal _barShadowPercent = 0.01m;
+    private decimal _cumulativeDelta;
+
+    private readonly ValueDataSeries _cvdLine = new("_cvdLine", "Cumulative Delta")
+    {
+        UseMinimizedModeIfEnabled = true,
+        VisualType = VisualMode.Line,
+        Color = Color.Red.Convert(),
+        ShowZeroValue = false,
+        IsHidden = false
+    };
+    private readonly ObjectDataSeries _bullishDivergences = new("_bullishDivergences", "Bullish Divergences");
+    private readonly ObjectDataSeries _bearishDivergences = new("_bearishDivergences", "Bearish Divergences");
+
     #region Properties
 
     [Range(1, int.MaxValue)]
@@ -40,6 +66,18 @@ public class CVDDivergence : Indicator
         }
     }
 
+    [Range(0, int.MaxValue)]
+    [Display(Name = "Bar Shadow Percent From Body", Description = "Determines the minimum percentage of the candle's shadow relative to its body, necessary for the candle's extremum (maximum or minimum) to be taken into account when searching for divergences. Helps filter out weak or insignificant levels.")]
+    public decimal BarShadowPercent
+    {
+        get => _barShadowPercent * 100m;
+        set
+        {
+            _barShadowPercent = value / 100m;
+            RecalculateValues();
+        }
+    }
+
     [Display(Name = "Bullish Color")] public Color BullishDivergence
     {
         get => _bullishDivergence;
@@ -63,31 +101,6 @@ public class CVDDivergence : Indicator
     }
     
     #endregion
-
-    public event Action? MyPropertyChanged;
-    public event Action<TrendLine>? DivergenceDrawn;
-    public event Action? Recalculating;
-
-    private readonly ValueDataSeries _cvdLine = new("_cvdLine", "Cumulative Delta")
-    {
-        UseMinimizedModeIfEnabled = true,
-        VisualType = VisualMode.Line,
-        Color = Color.Red.Convert(),
-        ShowZeroValue = false,
-        IsHidden = false
-    };
-    private readonly ObjectDataSeries _bullishDivergences = new("_bullishDivergences", "Bullish Divergences");
-    private readonly ObjectDataSeries _bearishDivergences = new("_bearishDivergences", "Bearish Divergences");
-
-    private HashSet<(int, int, decimal, decimal)> _linePositions = new();
-
-    private Color _bullishDivergence = Color.Green;
-    private Color _bearishDivergence = Color.Red;
-
-    private int _minDistance = 10;
-    private int _maxDistance = 100;
-
-    private decimal _cumulativeDelta;
 
     public CVDDivergence() : base(true)
     {
@@ -166,27 +179,35 @@ public class CVDDivergence : Indicator
         DrawDivergence(_bullishDivergences, bullish, lastBar);
     }
 
-    private (PriceExtremum last, PriceExtremum previous) GetLastTwoHighs(int startBar, int endBar)
+    private (PriceExtremum last, PriceExtremum previous) GetLastTwoHighs(in int startBar, in int endBar)
     {
-        decimal highestHigh = decimal.MinValue;
-
         PriceExtremum previousHigh = default;
         PriceExtremum lastHigh = default;
+
+        decimal highestHigh = decimal.MinValue;
 
         for (int i = startBar; i <= endBar; i++)
         {
             var candle = GetCandle(i);
 
-            if (candle.High >= highestHigh)
-            {
-                highestHigh = candle.High;
+            if (candle.High < highestHigh)
+                continue;
 
+            bool isNotSequenceBar = lastHigh.Bar is not 0 && lastHigh.Bar != i - 1;
+
+            if (isNotSequenceBar)
                 previousHigh = lastHigh;
-                lastHigh = new PriceExtremum(i, highestHigh, _cvdLine[i]);
-            }
+
+            if (IsPassShadowFilter(candle) is false)
+                continue;
+
+            highestHigh = candle.High;
+            lastHigh = new PriceExtremum(i, highestHigh, _cvdLine[i]);
         }
 
         return (lastHigh, previousHigh);
+
+        bool IsPassShadowFilter(in IndicatorCandle candle) => candle.UpperShadowPercent() >= _barShadowPercent;
     }
 
     private (PriceExtremum last, PriceExtremum previous) GetLastTwoLows(int startBar, int endBar)
@@ -200,27 +221,38 @@ public class CVDDivergence : Indicator
         {
             var candle = GetCandle(i);
 
-            if (candle.Low <= lowestLow)
-            {
-                lowestLow = candle.Low;
+            if (candle.Low > lowestLow)
+                continue;
 
+            bool isNotSequenceBar = lastLow.Bar is not 0 && lastLow.Bar != i - 1;
+
+            if (isNotSequenceBar)
                 previousLow = lastLow;
-                lastLow = new PriceExtremum(i, lowestLow, _cvdLine[i]);
-            }
+
+            if (IsPassShadowFilter(candle) is false)
+                continue;
+
+            lowestLow = candle.Low;
+            lastLow = new PriceExtremum(i, lowestLow, _cvdLine[i]);
         }
 
         return (lastLow, previousLow);
+
+        bool IsPassShadowFilter(in IndicatorCandle candle) => candle.LowerShadowPercent() >= _barShadowPercent;
     }
 
     private bool IsValid(in PriceExtremum extremum, in PriceExtremum previousExtremum, in int lastBar)
     {
+        var noSuitableExtremumsFound = extremum == default || previousExtremum == default;
         var (Left, Right) = extremum.Bar > previousExtremum.Bar
             ? (previousExtremum, extremum)
             : (extremum, previousExtremum);
 
         bool isTooCloseDistance = Right.Bar - Left.Bar < _minDistance;
         bool isCurrentExtremum = Right.Bar == lastBar;
-        bool alreadyDrawn = _linePositions.Add((Left.Bar, Right.Bar, Left.Price, Right.Price)) is false;
+
+        if (noSuitableExtremumsFound)
+            return false;
 
         if (isTooCloseDistance)
             return false;
@@ -228,10 +260,12 @@ public class CVDDivergence : Indicator
         if (isCurrentExtremum is false)
             return false;
 
-        if (alreadyDrawn)
+        if (IsDivergence(Left, Right) is false)
             return false;
 
-        if (IsDivergence(Left, Right) is false)
+        bool alreadyDrawn = _linePositions.Add((Left.Bar, Right.Bar, Left.Price, Right.Price)) is false;
+
+        if (alreadyDrawn)
             return false;
 
         return true;
