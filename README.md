@@ -4,7 +4,8 @@
 
 Индикатор строит линии дивергенций и выделяет их цветом в зависимости от направления (бычья или медвежья).
 
-<img src="https://github.com/Eipix/assets/divergence_btc_futures.png">
+<img src="https://github.com/Eipix/CVD-Divergence/blob/master/assets/divergences_btc_futures.png">
+
 ---
 
 ## ⚙️ Параметры
