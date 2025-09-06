@@ -125,7 +125,7 @@ public class CVDDivergence : Indicator
     {
         var lastCandle = GetCandle(bar);
 
-        if (IsUnfinishedBar(lastCandle, bar))
+        if (UpdateIfUnfinishedBar(lastCandle, bar))
             return;
 
         _cumulativeDelta += lastCandle.Delta;
@@ -136,7 +136,7 @@ public class CVDDivergence : Indicator
 
     #region Private Methods
 
-    private bool IsUnfinishedBar(in IndicatorCandle lastCandle, in int lastBar)
+    private bool UpdateIfUnfinishedBar(in IndicatorCandle lastCandle, in int lastBar)
     {
         if (lastBar == CurrentBar - 1)
         {
@@ -181,75 +181,58 @@ public class CVDDivergence : Indicator
 
     private (PriceExtremum last, PriceExtremum previous) GetLastTwoHighs(in int startBar, in int endBar)
     {
-        PriceExtremum previousHigh = default;
-        PriceExtremum lastHigh = default;
+        static bool SkipCondition(IndicatorCandle candle, decimal tempExtremum) => candle.High < tempExtremum;
+        static decimal CandlePointSelector(IndicatorCandle candle) => candle.High;
+        static decimal ShadowPercentSelector(IndicatorCandle candle) => candle.UpperShadowPercent();
 
-        decimal highestHigh = decimal.MinValue;
+        return GetLastTwoExtremums(SkipCondition, CandlePointSelector, ShadowPercentSelector, startBar, endBar, decimal.MinValue);
+    }
+
+    private (PriceExtremum last, PriceExtremum previous) GetLastTwoLows(in int startBar, in int endBar)
+    {
+        static bool SkipCondition(IndicatorCandle candle, decimal tempExtremum) => candle.Low > tempExtremum;
+        static decimal CandlePointSelector(IndicatorCandle candle) => candle.Low;
+        static decimal ShadowPercentSelector(IndicatorCandle candle) => candle.LowerShadowPercent();
+
+        return GetLastTwoExtremums(SkipCondition, CandlePointSelector, ShadowPercentSelector, startBar, endBar, decimal.MaxValue);
+    }
+
+    private (PriceExtremum last, PriceExtremum previous) GetLastTwoExtremums(Func<IndicatorCandle, decimal, bool> skipCondition, Func<IndicatorCandle, decimal> candlePointSelector, Func<IndicatorCandle, decimal> shadowPercentSelector, in int startBar, in int endBar, decimal currentExtremumValue)
+    {
+        IndicatorCandle? lastCandle = null;
+
+        PriceExtremum previous = default;
+        PriceExtremum last = default;
 
         for (int i = startBar; i <= endBar; i++)
         {
             var candle = GetCandle(i);
 
-            if (candle.High < highestHigh)
+            if (skipCondition.Invoke(candle, currentExtremumValue))
                 continue;
 
-            bool isNotSequenceBar = lastHigh.Bar is not 0 && lastHigh.Bar != i - 1;
+            if (IsSequentialBar(i) is false)
+                previous = last;
 
-            if (isNotSequenceBar)
-                previousHigh = lastHigh;
-
-            if (IsPassShadowFilter(candle) is false)
-                continue;
-
-            highestHigh = candle.High;
-            lastHigh = new PriceExtremum(i, highestHigh, _cvdLine[i]);
+            currentExtremumValue = candlePointSelector.Invoke(candle);
+            last = new PriceExtremum(i, currentExtremumValue, _cvdLine[i]);
+            lastCandle = candle;
         }
 
-        return (lastHigh, previousHigh);
+        if (lastCandle is not null && PassesShadowFilter(lastCandle) is false)
+            return (default, default);
 
-        bool IsPassShadowFilter(in IndicatorCandle candle) => candle.UpperShadowPercent() >= _barShadowPercent;
+        return (last, previous);
+
+        bool IsSequentialBar(int bar) => last.Bar is 0 || last.Bar == bar - 1;
+        bool PassesShadowFilter(in IndicatorCandle candle) => shadowPercentSelector.Invoke(candle) >= _barShadowPercent;
     }
-
-    private (PriceExtremum last, PriceExtremum previous) GetLastTwoLows(int startBar, int endBar)
+    
+    private bool IsValid(in PriceExtremum last, in PriceExtremum previous, in int lastBar)
     {
-        decimal lowestLow = decimal.MaxValue;
-
-        PriceExtremum previousLow = default;
-        PriceExtremum lastLow = default;
-
-        for (int i = startBar; i <= endBar; i++)
-        {
-            var candle = GetCandle(i);
-
-            if (candle.Low > lowestLow)
-                continue;
-
-            bool isNotSequenceBar = lastLow.Bar is not 0 && lastLow.Bar != i - 1;
-
-            if (isNotSequenceBar)
-                previousLow = lastLow;
-
-            if (IsPassShadowFilter(candle) is false)
-                continue;
-
-            lowestLow = candle.Low;
-            lastLow = new PriceExtremum(i, lowestLow, _cvdLine[i]);
-        }
-
-        return (lastLow, previousLow);
-
-        bool IsPassShadowFilter(in IndicatorCandle candle) => candle.LowerShadowPercent() >= _barShadowPercent;
-    }
-
-    private bool IsValid(in PriceExtremum extremum, in PriceExtremum previousExtremum, in int lastBar)
-    {
-        var noSuitableExtremumsFound = extremum == default || previousExtremum == default;
-        var (Left, Right) = extremum.Bar > previousExtremum.Bar
-            ? (previousExtremum, extremum)
-            : (extremum, previousExtremum);
-
-        bool isTooCloseDistance = Right.Bar - Left.Bar < _minDistance;
-        bool isCurrentExtremum = Right.Bar == lastBar;
+        bool noSuitableExtremumsFound = last == default || previous == default;
+        bool isTooCloseDistance = last.Bar - previous.Bar < _minDistance;
+        bool isCurrentExtremum = last.Bar == lastBar;
 
         if (noSuitableExtremumsFound)
             return false;
@@ -260,10 +243,10 @@ public class CVDDivergence : Indicator
         if (isCurrentExtremum is false)
             return false;
 
-        if (IsDivergence(Left, Right) is false)
+        if (IsDivergence(previous, last) is false)
             return false;
 
-        bool alreadyDrawn = _linePositions.Add((Left.Bar, Right.Bar, Left.Price, Right.Price)) is false;
+        bool alreadyDrawn = _linePositions.Add((previous.Bar, last.Bar, previous.Price, last.Price)) is false;
 
         if (alreadyDrawn)
             return false;
