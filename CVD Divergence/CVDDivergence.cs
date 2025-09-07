@@ -75,6 +75,7 @@ public class CVDDivergence : Indicator
         {
             _barShadowPercent = value / 100m;
             RecalculateValues();
+            MyPropertyChanged?.Invoke();
         }
     }
 
