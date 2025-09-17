@@ -12,7 +12,7 @@ The indicator plots divergence lines and highlights them in different colors dep
 
 ## ⚙️ Parameters
 
-<img src="https://github.com/Eipix/CVD-Divergence/blob/master/assets/divergence_parameters.png">
+<img src="https://github.com/Eipix/CVD-Divergence/blob/master/assets/parameters.png">
 
 ---
 
