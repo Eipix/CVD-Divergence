@@ -5,10 +5,11 @@ using static CVD_Divergence.Extensions;
 
 namespace ATAS.Indicators.Technical;
 
-public readonly record struct Divergence
+public record Divergence
 {
     public readonly PriceExtremum Left;
     public readonly PriceExtremum Right;
+
     public readonly Color Color;
 
     public readonly DivergenceType Type;
@@ -16,18 +17,18 @@ public readonly record struct Divergence
     public readonly bool IsAbsorption;
     public readonly bool IsExhaustion;
 
-    public Divergence(in PriceExtremum left, in PriceExtremum right, in Color color, in DivergenceType type)
+    public Divergence(PriceExtremum last, PriceExtremum previous, in Color color, in DivergenceType type)
     {
-        Left = left;
-        Right = right;
+        Right = last;
+        Left = previous;
 
         Color = color;
         Type = type;
 
         IsAbsorption = Type switch
         {
-            DivergenceType.Bullish => Falling(left.Delta, right.Delta),
-            DivergenceType.Bearish => Rising(left.Delta, right.Delta),
+            DivergenceType.Bullish => Falling(Left.Delta, Right.Delta),
+            DivergenceType.Bearish => Rising(Left.Delta, Right.Delta),
             _ => throw new IndexOutOfRangeException($"Unexpected divergence type {nameof(Type)}"),
         };
 

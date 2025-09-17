@@ -1,6 +1,6 @@
 ﻿namespace CVD_Divergence.Models;
 
-public readonly record struct PriceExtremum
+public record PriceExtremum
 {
     public readonly int Bar;
     public readonly decimal Price;

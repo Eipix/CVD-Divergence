@@ -24,16 +24,12 @@ public class CVDDivergence : Indicator
     private int _minDistance = 10;
     private int _maxDistance = 100;
 
-    private decimal _barShadowPercent = 0.01m;
     private decimal _cumulativeDelta;
 
     private readonly ValueDataSeries _cvdLine = new("_cvdLine", "Cumulative Delta")
     {
-        UseMinimizedModeIfEnabled = true,
         VisualType = VisualMode.Line,
         Color = Color.Red.Convert(),
-        ShowZeroValue = false,
-        IsHidden = false
     };
     private readonly ObjectDataSeries _bullishDivergences = new("_bullishDivergences", "Bullish Divergences");
     private readonly ObjectDataSeries _bearishDivergences = new("_bearishDivergences", "Bearish Divergences");
@@ -61,19 +57,6 @@ public class CVDDivergence : Indicator
         set
         {
             _minDistance = Math.Min(value, _maxDistance);
-            RecalculateValues();
-            MyPropertyChanged?.Invoke();
-        }
-    }
-
-    [Range(0, int.MaxValue)]
-    [Display(Name = "Bar Shadow Percent From Body", Description = "Determines the minimum percentage of the candle's shadow relative to its body, necessary for the candle's extremum (maximum or minimum) to be taken into account when searching for divergences. Helps filter out weak or insignificant levels.")]
-    public decimal BarShadowPercent
-    {
-        get => _barShadowPercent * 100m;
-        set
-        {
-            _barShadowPercent = value / 100m;
             RecalculateValues();
             MyPropertyChanged?.Invoke();
         }
@@ -126,8 +109,11 @@ public class CVDDivergence : Indicator
     {
         var lastCandle = GetCandle(bar);
 
-        if (UpdateIfUnfinishedBar(lastCandle, bar))
+        if (IsUnfinishedBar(bar))
+        {
+            _cvdLine[bar] = _cumulativeDelta + lastCandle.Delta;
             return;
+        }
 
         _cumulativeDelta += lastCandle.Delta;
         _cvdLine[bar] = _cumulativeDelta;
@@ -137,15 +123,7 @@ public class CVDDivergence : Indicator
 
     #region Private Methods
 
-    private bool UpdateIfUnfinishedBar(in IndicatorCandle lastCandle, in int lastBar)
-    {
-        if (lastBar == CurrentBar - 1)
-        {
-            _cvdLine[lastBar] = _cumulativeDelta + lastCandle.Delta;
-            return true;
-        }
-        return false;
-    }
+    private bool IsUnfinishedBar(in int bar) => bar == CurrentBar - 1;
 
     private void DetectDivergences(in int lastBar)
     {
@@ -165,7 +143,7 @@ public class CVDDivergence : Indicator
         if (IsValid(lastHigh, previousHigh, lastBar) is false)
             return;
 
-        Divergence bearish = new(lastHigh, previousHigh, _bearishDivergence, DivergenceType.Bearish);
+        Divergence bearish = new(lastHigh!, previousHigh!, _bearishDivergence, DivergenceType.Bearish);
         DrawDivergence(_bearishDivergences, bearish, lastBar);
     }
     
@@ -176,34 +154,30 @@ public class CVDDivergence : Indicator
         if (IsValid(lastLow, previousLow, lastBar) is false)
             return;
 
-        Divergence bullish = new(lastLow, previousLow, _bullishDivergence, DivergenceType.Bullish);
+        Divergence bullish = new(lastLow!, previousLow!, _bullishDivergence, DivergenceType.Bullish);
         DrawDivergence(_bullishDivergences, bullish, lastBar);
     }
 
-    private (PriceExtremum last, PriceExtremum previous) GetLastTwoHighs(in int startBar, in int endBar)
+    private (PriceExtremum? last, PriceExtremum? previous) GetLastTwoHighs(in int startBar, in int endBar)
     {
         static bool SkipCondition(IndicatorCandle candle, decimal tempExtremum) => candle.High < tempExtremum;
         static decimal CandlePointSelector(IndicatorCandle candle) => candle.High;
-        static decimal ShadowPercentSelector(IndicatorCandle candle) => candle.UpperShadowPercent();
 
-        return GetLastTwoExtremums(SkipCondition, CandlePointSelector, ShadowPercentSelector, startBar, endBar, decimal.MinValue);
+        return GetLastTwoExtremums(SkipCondition, CandlePointSelector, startBar, endBar, decimal.MinValue);
     }
 
-    private (PriceExtremum last, PriceExtremum previous) GetLastTwoLows(in int startBar, in int endBar)
+    private (PriceExtremum? last, PriceExtremum? previous) GetLastTwoLows(in int startBar, in int endBar)
     {
         static bool SkipCondition(IndicatorCandle candle, decimal tempExtremum) => candle.Low > tempExtremum;
         static decimal CandlePointSelector(IndicatorCandle candle) => candle.Low;
-        static decimal ShadowPercentSelector(IndicatorCandle candle) => candle.LowerShadowPercent();
 
-        return GetLastTwoExtremums(SkipCondition, CandlePointSelector, ShadowPercentSelector, startBar, endBar, decimal.MaxValue);
+        return GetLastTwoExtremums(SkipCondition, CandlePointSelector, startBar, endBar, decimal.MaxValue);
     }
 
-    private (PriceExtremum last, PriceExtremum previous) GetLastTwoExtremums(Func<IndicatorCandle, decimal, bool> skipCondition, Func<IndicatorCandle, decimal> candlePointSelector, Func<IndicatorCandle, decimal> shadowPercentSelector, in int startBar, in int endBar, decimal currentExtremumValue)
+    private (PriceExtremum? last, PriceExtremum? previous) GetLastTwoExtremums(Func<IndicatorCandle, decimal, bool> skipCondition, Func<IndicatorCandle, decimal> candlePointSelector, in int startBar, in int endBar, decimal currentExtremumValue)
     {
-        IndicatorCandle? lastCandle = null;
-
-        PriceExtremum previous = default;
-        PriceExtremum last = default;
+        PriceExtremum? previous = null;
+        PriceExtremum? last = null;
 
         for (int i = startBar; i <= endBar; i++)
         {
@@ -217,57 +191,56 @@ public class CVDDivergence : Indicator
 
             currentExtremumValue = candlePointSelector.Invoke(candle);
             last = new PriceExtremum(i, currentExtremumValue, _cvdLine[i]);
-            lastCandle = candle;
         }
-
-        if (lastCandle is not null && PassesShadowFilter(lastCandle) is false)
-            return (default, default);
 
         return (last, previous);
 
-        bool IsSequentialBar(int bar) => last.Bar is 0 || last.Bar == bar - 1;
-        bool PassesShadowFilter(in IndicatorCandle candle) => shadowPercentSelector.Invoke(candle) >= _barShadowPercent;
+        bool IsSequentialBar(int bar) => last is null or { Bar: 0} || last.Bar == bar - 1;
     }
     
-    private bool IsValid(in PriceExtremum last, in PriceExtremum previous, in int lastBar)
+    private bool IsValid(PriceExtremum? last, PriceExtremum? previous, int lastBar)
     {
-        bool noSuitableExtremumsFound = last == default || previous == default;
-        bool isTooCloseDistance = last.Bar - previous.Bar < _minDistance;
-        bool isCurrentExtremum = last.Bar == lastBar;
 
-        if (noSuitableExtremumsFound)
+        if (IsExtremumsNotFound())
             return false;
 
-        if (isTooCloseDistance)
+        if (IsLastLaterThanPrevious() is false)
+            throw new InvalidOperationException($"last extremum must be later than previous last.Bar - {last.Bar}, previous.Bar - {previous.Bar}");
+
+        if (IsTooCloseDistance())
             return false;
 
-        if (isCurrentExtremum is false)
+        if (IsCurrentExtremum() is false)
             return false;
 
-        if (IsDivergence(previous, last) is false)
+        if (IsDivergence(previous!, last!) is false)
             return false;
 
-        bool alreadyDrawn = _linePositions.Add((previous.Bar, last.Bar, previous.Price, last.Price)) is false;
-
-        if (alreadyDrawn)
+        if (IsAlreadyDrawn())
             return false;
 
         return true;
+
+        bool IsExtremumsNotFound() => last is null || previous is null;
+        bool IsLastLaterThanPrevious() => last!.Bar > previous!.Bar;
+        bool IsTooCloseDistance() => last!.Bar - previous!.Bar < _minDistance;
+        bool IsCurrentExtremum() => last!.Bar == lastBar;
+        bool IsAlreadyDrawn() => _linePositions.Add((previous!.Bar, last!.Bar, previous.Price, last.Price)) is false;
     }
 
-    private bool IsDivergence(in PriceExtremum left, in PriceExtremum right)
+    private bool IsDivergence(PriceExtremum left, PriceExtremum right)
     {
-        var leftDelta = left.Delta;
-        var rightDelta = right.Delta;
-        var leftPrice = left.Price;
-        var rightPrice = right.Price;
+        decimal leftDelta = left.Delta;
+        decimal rightDelta = right.Delta;
+        decimal leftPrice = left.Price;
+        decimal rightPrice = right.Price;
 
         return (RisingOrEqual(leftDelta, rightDelta) && Falling(leftPrice, rightPrice))
             || (FallingOrEqual(leftDelta, rightDelta) && Rising(leftPrice, rightPrice))
             || (RisingOrFalling(leftDelta, rightDelta) && leftPrice == rightPrice);
     }
 
-    private void DrawDivergence(ObjectDataSeries divergences, in Divergence divergence, in int last)
+    private void DrawDivergence(ObjectDataSeries divergences, Divergence divergence, in int last)
     {
         var pen = new Pen(divergence.Color);
         TrendLine line = new(divergence.Left.Bar, divergence.Left.Price, divergence.Right.Bar, divergence.Right.Price, pen);

@@ -89,11 +89,11 @@ public class CVDStrategySample : ChartStrategy
         if (series[bar] is not Divergence divergence)
             return false;
 
-        bool allowAll = _type == Type.All;
-        bool allowAbsorption = divergence.IsAbsorption && _type == Type.OnlyAbsorption;
-        bool allowExhaustion = divergence.IsExhaustion && _type == Type.OnlyExhaustion;
+        return AllowAll() || AllowAbsorption() || AllowExhaustion();
 
-        return allowAll || allowAbsorption || allowExhaustion;
+        bool AllowAll() => _type is Type.All;
+        bool AllowAbsorption() => divergence.IsAbsorption && _type is Type.OnlyAbsorption;
+        bool AllowExhaustion() => divergence.IsExhaustion && _type is Type.OnlyExhaustion;
     }
 
     private void OpenPosition(OrderDirections direction)

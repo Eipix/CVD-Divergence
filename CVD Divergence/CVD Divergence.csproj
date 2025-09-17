@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net8.0-windows</TargetFramework>
@@ -10,16 +10,22 @@
 
   <ItemGroup>
     <Reference Include="ATAS.DataFeedsCore">
-      <HintPath>D:\ATAS\ATAS Platform\ATAS.DataFeedsCore.dll</HintPath>
+      <HintPath>D:\ATAS Platform\ATAS.DataFeedsCore.dll</HintPath>
     </Reference>
     <Reference Include="ATAS.Indicators">
-      <HintPath>D:\ATAS\ATAS Platform\ATAS.Indicators.dll</HintPath>
+      <HintPath>D:\ATAS Platform\ATAS.Indicators.dll</HintPath>
     </Reference>
     <Reference Include="ATAS.Strategies">
-      <HintPath>D:\ATAS\ATAS Platform\ATAS.Strategies.dll</HintPath>
+      <HintPath>D:\ATAS Platform\ATAS.Strategies.dll</HintPath>
+    </Reference>
+    <Reference Include="OFT.Rendering">
+      <HintPath>D:\ATAS Platform\OFT.Rendering.dll</HintPath>
     </Reference>
     <Reference Include="System.Drawing.Common">
-      <HintPath>D:\ATAS\ATAS Platform\System.Drawing.Common.dll</HintPath>
+      <HintPath>D:\ATAS Platform\System.Drawing.Common.dll</HintPath>
+    </Reference>
+    <Reference Include="Utils.Common">
+      <HintPath>D:\ATAS Platform\Utils.Common.dll</HintPath>
     </Reference>
   </ItemGroup>
 
