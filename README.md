@@ -20,7 +20,6 @@ The indicator plots divergence lines and highlights them in different colors dep
 |-----------|------|-------------|
 | **Max Bars Distance** | `int` | Upper limit for defining divergences (in bars). |
 | **Min Bars Distance** | `int` | Filters out divergences whose distance is less than the specified value. |
-| **Bar Shadow Percent From Body** | `decimal` | The minimum percentage of the candle's shadow relative to its body for the extremum to be considered. |
 | **Bullish Color** | `Color` | The color of bullish divergences. |
 | **Bearish Color** | `Color` | The color of bearish divergences. |
 
